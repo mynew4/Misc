@@ -1,0 +1,89 @@
+/* Készítette: Karak
+
+Baradin Hold: Argaloth
+
+*/
+
+enum spells
+{
+	/* 10 player */
+
+	SPELL_METEOR_SLASH				=	88942,
+	SPELL_FEL_FIRESTORM				=	88972,
+	SPELL_CONSUMING_DARKNESS		=	88954,	
+	SPELL_BERSERKER					=	47008,
+	
+	/* 25 player */
+
+	SPELL_METEOR_SLASH				=	95172,
+	SPELL_FEL_FIRESTORM				=	88972,
+	SPELL_CONSUMING_DARKNESS		=	88954,	
+	SPELL_BERSERKER					=	47008,
+}
+
+class boss_argaloth	:	public CreatureScript
+{
+public:
+	boss_argaloth ()	:	CreatureScript ("boss_argaloth")
+		
+	CreatureAI* GetAI (Creature* pCreature) const
+	{
+		return new boss_argalothAI (pCreautre);
+	}
+
+	struct boss_argatloth	:	public BossAI
+	{
+		boss_argalothAI (Creature *c)	:	BossAI (c, BOSS_ARGALOTH) {}
+
+		uint32 m_uiMeteorTimer;
+		uint32 m_uiFireStormTimer;
+		uint32 m_uiConsumingTimer;
+		uint32 m_uiBerserkerTimer;
+
+		void EnterCombat (Unit* /*who*/)
+		{
+			m_uiMeteorTimer			=	10000,
+			m_uiFireStormTimer		=	40000,	
+			m_uiConsumingTimer		=	60000,
+			m_uiBerserkerTimer		=	360000,
+		}
+
+		void UpdateAi (const uint32	diff)
+		{
+			if (m_uiMeteorTimer<=diff)
+			{
+			DoCast (me, SPELL_METEOR_SLASH);
+			m_uiMeteorTimer=10000
+			else m_uiMeteorTimer-=diff;
+			}
+
+
+			if (m_uiFireStormTimer<=diff)
+			{
+			DoCast (me, SPELL_FEL_FIRESTORM);
+			m_uiFireStormTimer=40000
+			else m_uiFireStorm-=diff;
+			}
+
+			if (m_uiConsumingTimer<=diff)
+			{
+			DoCast (me, SPELL_CONSUMING_DARKNESS);
+			m_uiConsumingTimer=60000
+			else m_uiConsumingTimer-=diff;
+			}
+
+			if (m_uiBerserkerTimer<=diff)
+			{
+			Docast (me, SPELL_BERSERKER);
+			m_uiBerserkerTimer=360000
+			else m_uiBerserkerTimer-=diff;
+			}
+
+		}
+	};
+};
+
+void AddSC_boss_argaloth();
+{
+    new boss_argaloth();
+}

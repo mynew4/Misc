@@ -1,0 +1,112 @@
+// Alizabal.h
+
+#pragma once
+
+using namespace System;
+
+namespace Alizabal {
+
+	public ref class Class1
+	{
+	
+	};
+}
+
+#include"ScriptPCH.h"
+#include"baradin_hold.h"
+
+enum Spells
+{
+    SPELL_BERSERK              = 47008,
+	SPELL_BLADE_DANCE		   = 105784,
+    SPELL_SEETHING_HATE        = 105067,
+    SPELL_SKEWER        = 104936,
+};
+
+enum Events
+{
+	EVENT_BERSERK=1,
+	EVENT_SKEWER,
+	EVENT_SEETHING HATE,
+	EVENT_BLADE_DANCE,
+};
+
+
+
+class boss_Alizabal: public CreatureScript
+{
+    public:
+        boss_Alizabal() : CreatureScript("boss_Alizabal") { }
+
+    struct boss_AlizabalAI: public BossAI
+    {
+        boss_AlizabalAI(Creature* creature) : BossAI(creature, DATA_Alizabal) { }
+
+        uint32 fel_firestorm_casted;
+
+        void Reset()
+        {
+            _Reset();
+            me->RemoveAurasDueToSpell(SPELL_BERSERK);
+            events.ScheduleEvent(EVENT_BERSERK, 300 *IN_MILLISECONDS);
+            events.ScheduleEvent(EVENT_BLADE_DANCE, 14 *IN_MILLISECONDS);
+            events.ScheduleEvent(EVENT_SEETHING_HATE, 10 *IN_MILLISECONDS);
+			events.ScheduleEvent(Event_SKEWER, 8 *IN_MILLISECONDS);
+            fel_firestorm_casted = 0;
+        }
+
+        void UpdateAI(const uint32 diff)
+        {
+            if (!UpdateVictim())
+                return;
+
+            if (me->GetHealthPct() < 65 && skewer_casted == 0)
+            {
+                DoCast(SPELL_SKEWER);
+                events.DelayEvents(3 *IN_MILLISECONDS);
+                skewer_casted = 1;
+            }
+            if (me->GetHealthPct() < 33 && skewer_casted == 1)
+            {
+                DoCast(SPELL_SKEWER);
+                events.DelayEvents(3 *IN_MILLISECONDS);
+                fel_firestorm_casted = 2;
+            }
+
+            events.Update(diff);
+
+            if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
+
+            while (uint32 eventId = events.ExecuteEvent())
+            {
+                switch (eventId)
+                {
+                case EVENT_SEETHING_HATE:
+                    DoCast(SPELL_SEETHING_HATE);
+                    events.RescheduleEvent(EVENT_SEETHING_HATE, 22 *IN_MILLISECONDS);
+                    break;
+                case EVENT_BLADE_DANCE:
+                    DoCast(SPELL_BLADE_DANCE);
+                    events.RescheduleEvent(EVENT_BLADE_DANCE, 15 *IN_MILLISECONDS);
+                    break;
+                case EVENT_BERSERK:
+                    DoCast(me, SPELL_BERSERK);
+                    break;
+                }
+            }
+
+            DoMeleeAttackIfReady();
+        }
+     };
+
+    CreatureAI* GetAI(Creature* creature) const
+    {
+        return new boss_alizabalAI(creature);
+    }
+};
+
+void AddSC_boss_alizabal()
+{
+    new boss_alizabal();
+}

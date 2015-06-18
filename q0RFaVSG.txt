@@ -1,0 +1,463 @@
+(0) комментариев
+
+
+Изменены файлы (5)
++3 -3 src/server/game/DataStores/DBCStructure.h
++1 -1 src/server/game/DataStores/DBCfmt.h
++385 -26 src/server/game/Spells/SpellInfo.cpp
++1 -2 src/server/game/Spells/SpellInfo.h
++10 -1 src/server/game/Spells/SpellMgr.h
+Side-by-side diff View file
+src/server/game/DataStores/DBCStructure.h
+ struct SpellRadiusEntry
+ {
+     uint32    ID;
+-    float     RadiusMin;
+-    float     RadiusPerLevel;
+-    float     RadiusMax;
++    float     radiusHostile;
++    //uint32    Unk    //always 0
++    float     radiusFriend;
+ };
+ 
+ struct SpellRangeEntry
+Side-by-side diff View file
+src/server/game/DataStores/DBCfmt.h
+ char const SpellFocusObjectfmt[] = "nx";
+ char const SpellItemEnchantmentfmt[] = "nxiiiiiixxxiiisiiiiiiix";
+ char const SpellItemEnchantmentConditionfmt[] = "nbbbbbxxxxxbbbbbbbbbbiiiiiXXXXX";
+-char const SpellRadiusfmt[] = "nfff";
++char const SpellRadiusfmt[] = "nfxf";
+ char const SpellRangefmt[] = "nffffixx";
+ char const SpellReagentsEntryfmt[] = "diiiiiiiiiiiiiiii";
+ char const SpellScalingEntryfmt[] = "diiiiffffffffffi";
+Side-by-side diff View file
+src/server/game/Spells/SpellInfo.cpp
+     return RadiusEntry != NULL;
+ }
+ 
+-bool SpellEffectInfo::HasMaxRadius() const
+-{
+-    return MaxRadiusEntry != NULL;
+-}
+-
+-float SpellEffectInfo::CalcRadius(Unit* caster, Spell* spell) const
+-{
+-    if (!HasRadius())
+-    {
+-        if (HasMaxRadius())
+-        {
+-            //! Still not sure which to pick. Anyway at the current time (Patch 4.3.4) most of the spell effects
+-            //! have no radius mod per level, and RadiusMin is equal to RadiusMax.
+-            return MaxRadiusEntry->RadiusMin;
+-        }
+-        return 0.0f;
+-    }
+-
+-    float radius = RadiusEntry->RadiusMin;
+-    if (caster)
+-    {
+-        radius += RadiusEntry->RadiusPerLevel * caster->getLevel();
+-        radius = std::min(radius, RadiusEntry->RadiusMax);
+-        if (Player* modOwner = caster->GetSpellModOwner())
+-            modOwner->ApplySpellMod(_spellInfo->Id, SPELLMOD_RADIUS, radius, spell);
+-    }
++float SpellEffectInfo::CalcRadius(bool positive, Unit* caster, Spell* spell) const
++{
++    if (!HasRadius()) //  Use for ANY non-radius spell. Define radius here.
++	{
++	  switch(_spellInfo->Id)
++	  {
++        // PLAYERS / PVP.
++		  // Solar beam
++		  case 81261:
++			  return 5.0f;
++		  // Gul'dan aur
++		  case 93974: 
++		  case 93987:
++		  case 93986:
++		  case 93975:
++			return 4.0f;
++		  case 102173: 
++			 return 60.0f;
++		  case 86041:
++			return 8.0f;
++		   // Death and Decay
++		  case 52212:
++			return 10.0f;
++		   // Blood worms
++		  case 81280:
++			return 15.0f;
++		   // Fire nova
++		  case 8349:
++			return 10.0f;
++		   // Serpent Spread
++		  case 88453:
++		  case 88466:
++			return 8.0f;
++		   // Healing Rain
++		  case 73921:
++			return 10.0f;
++		   // Earthquake
++		  case 77478:
++			return 8.0f;
++		   // Incaster absorb.
++		  case 86261:
++			return 6.0f;
++		   // Ralling cry
++		  case 97463:
++			return 30.0f;
++		   // Atonement
++		  case 94472: 
++			return 15.0f;
++		   // Consecration
++		  case 81297:
++			return 8.0f;
++
++        // DUNGEONS, RAIDS / PVE.
++          // HOO
++          case 75117: // Burning Light Anhuur
++            return 4.0f;
++	      case 76956: //Alpha Beams Anraphet
++	        return 5.0f; // 5y
++          case 75790: // Rampant Growth Ammunae
++          case 89888: // Rampant Growth Ammunae
++            return 100.0f;
++          case 75702: // Spore Ammunae
++            return 6.0f;			
++          case 75540: // Flame Bolt Ptah
++            return 70.0f;
++          case 75548: // Quicksand Ptah
++          case 89648:
++            return 6.0f;
++          case 69355:
++            return 10.0f;
++          case 76355: // Blessing of the sun Rajh
++            return 100.0f;  // -- DONE.
++
++          // TOTT
++          case 80564: // Fungal Spores Naz'jar
++          case 91470:
++            return 5.0f;
++          case 75700: // Geyser Naz'jar
++          case 91469:
++          case 94046:
++          case 94047:
++            return 5.0f;
++          case 75690: // Naz'jar Waterspout knockback
++            return 5.0f;
++          case 76085: // Dark Fissure Ulthok
++          case 91375:
++            return 6.0f;
++          case 76341: // Unrelenting Agony Mindbender
++          case 91493:
++            return 100.0f;
++          case 84945: // Earth Shards Erunak
++          case 91491:
++            return 5.0f;							
++          case 83561: // Blight Ozumat
++          case 91495:
++            return 10.0f; // -- DONE.
++
++          // BWD
++		  case 80161: // Omnotron Chemical Cloud
++          case 91471: // Omnotron Chemical Cloud
++          case 91472: // Omnotron Chemical Cloud
++          case 91473: // Omnotron Chemical Cloud
++          case 80164: // Omnotron Chemical Cloud
++          case 91478: // Omnotron Chemical Cloud
++          case 91479: // Omnotron Chemical Cloud
++          case 91480: // Omnotron Chemical Cloud
++			return 12.0f;
++
++          case 91849: // Omnotron Grip Of Death
++          case 92051: // Omnotron Shadow Conductor
++          case 92135: // Omnotron Shadow Conductor
++            return 100.0f;
++
++          case 79035: // Omnotron Incineration
++          case 91523: // Omnotron Incineration
++          case 91524: // Omnotron Incineration
++          case 91525: // Omnotron Incineration
++			return 50000.0f;
++		  
++          case 77908: // Maloriak Arcane Storm
++          case 92961: // Maloriak Arcane Storm
++          case 92962: // Maloriak Arcane Storm
++          case 92963: // Maloriak Arcane Storm
++            return 80.0f;
++          case 93041: // Absolute 0 Maloriak
++          case 93042: // Absolute 0 Maloriak
++          case 93043: // Absolute 0 Maloriak
++          case 78208: // Absolute 0 Maloriak
++          case 77675: // Atramedes Sonar Pulse
++          case 92417: // Atramedes Sonar Pulse
++          case 92418: // Atramedes Sonar Pulse
++          case 92419: // Atramedes Sonar Pulse
++          case 92553: // Atramedes Sonar Bomb
++          case 92554: // Atramedes Sonar Bomb
++          case 92555: // Atramedes Sonar Bomb
++          case 92556: // Atramedes Sonar Bomb
++            return 5.0f;
++          case 80092: // Omnotron Poison Bomb
++          case 91498: // Omnotron Poison Bomb
++          case 91499: // Omnotron Poison Bomb
++          case 91500: // Omnotron Poison Bomb
++          case 80097: // Omnotron Poison Puddle
++          case 91488: // Omnotron Poison Puddle
++          case 91489: // Omnotron Poison Puddle
++          case 91490: // Omnotron Poison Puddle
++            return 6.0f;
++          case 91879: // Omnotron Arcane Blowback
++          case 91880: // Omnotron Arcane Blowback
++            return 17.0f;
++          case 82848: // Massacre Chimaeron
++          case 77612: // Atramedes Modulation
++          case 92451: // Atramedes Modulation
++          case 92452: // Atramedes Modulation
++          case 92453: // Atramedes Modulation
++            return 500.0f;
++          case 78023: // Atramedes Roaring Flame
++          case 78555: // Atramedes Roaring Flame
++          case 92472: // Atramedes Roaring Flame
++          case 92473: // Atramedes Roaring Flame
++          case 92474: // Atramedes Roaring Flame
++          case 92483: // Atramedes Roaring Flame
++          case 92484: // Atramedes Roaring Flame
++          case 92485: // Atramedes Roaring Flame
++          case 77982: // Atramedes Searing Flame
++          case 92421: // Atramedes Searing Flame
++          case 92422: // Atramedes Searing Flame
++          case 92423: // Atramedes Searing Flame
++          case 78353: // Atramedes Roaring Flame Breath
++          case 92445: // Atramedes Roaring Flame Breath
++          case 92446: // Atramedes Roaring Flame Breath
++          case 92447: // Atramedes Roaring Flame Breath
++            return 4.0f;
++
++          // BOT
++          case 83710: // Furious Roar Halfus
++          case 86169: // Furious Roar Halfus
++          case 86170: // Furious Roar Halfus
++          case 86171: // Furious Roar Halfus
++            return 200.0f;
++          case 83719: // Fireball Barrage Halfus Proto
++            return 500.0f;
++          case 83855: // Scorching Breath Halfus Proto 
++          case 86163: // Scorching Breath Halfus Proto 
++          case 86164: // Scorching Breath Halfus Proto
++          case 86165: // Scorching Breath Halfus Proto
++            return 500.0f;
++          case 86825: // Blackout Valiona
++          case 92879: // Blackout Valiona
++          case 92880: // Blackout Valiona
++          case 92881: // Blackout Valiona
++            return 8.0f;
++          case 86505: // Fabulous Flames Theralion
++          case 92907: // Fabulous Flames Theralion
++          case 92908: // Fabulous Flames Theralion
++          case 92909: // Fabulous Flames Theralion
++            return 12.0f;
++          case 93055: // Shifting Reality Valiona
++            return 8.0f;
++          case 86014: // Twilight Meteor Valiona
++          case 92863: // Twilight Meteor Valiona
++          case 92864: // Twilight Meteor Valiona
++          case 92865: // Twilight Meteor Valiona
++            return 6.0f;
++          case 93019: // Rift Blast Val/The
++          case 93020: // Rift Blast Val/The
++            return 30.0f;
++          case 86406: // Theralion Dazzling Destruction
++          case 92926: // Theralion Dazzling Destruction
++          case 92927: // Theralion Dazzling Destruction
++          case 92928: // Theralion Dazzling Destruction
++            return 12.0f;
++          case 86305: // Unstable Twilight Val/The
++          case 92882: // Unstable Twilight Val/The
++          case 92883: // Unstable Twilight Val/The
++          case 92884: // Unstable Twilight Val/The
++          case 86199: // Twilight Flames Val/The
++          case 92868: // Twilight Flames Val/The
++          case 92869: // Twilight Flames Val/The
++          case 92870: // Twilight Flames Val/The
++          case 86228: // Twilight Flames Val/The
++          case 92867: // Twilight Flames Val/The
++            return 8.0f;
++          case 82746: // Feludius Glaciate
++          case 92506: // Feludius Glaciate
++          case 92507: // Feludius Glaciate
++          case 92508: // Feludius Glaciate
++            return 200.0f;
++          case 82700: // Feludius Water Bomb
++          case 82762: // Feludius Waterlogged
++            return 6.0f;
++          case 82666: // Feludius Frost Imbued
++          case 82663: // Ignacious Flame Imbued
++          case 79332: // Terrastra Gravity Well Pull
++            return 10.0f;
++          case 92214: // Ignacious Flame Strike
++            return 7.0f;
++          case 83067: // Arion Thundershock
++          case 92469: // Arion Thundershock
++          case 92470: // Arion Thundershock
++          case 92471: // Arion Thundershock
++          case 83070: // Arion Lighting Blast
++          case 92454: // Arion Lighting Blast
++          case 92455: // Arion Lighting Blast
++          case 92456: // Arion Lighting Blast
++            return 200.0f;
++          case 84915: // Monstrosity Ice Pools
++          case 92497: // Monstrosity Ice Pools
++          case 92498: // Monstrosity Ice Pools
++          case 92499: // Monstrosity Ice Pools
++            return 10.0f;
++          case 83565: // Terrastra Quake
++          case 92544: // Terrastra Quake
++          case 92545: // Terrastra Quake
++          case 92546: // Terrastra Quake
++            return 150.0f;
++
++          // TOTFW
++          case 86111: // Ice Patch Nezir
++		  case 93129:
++		  case 93130:
++		  case 93131:
++            return 10.0f;
++		  case 86282: // Toxic Spores Rohash
++		  case 93120:
++		  case 93121:
++		  case 93122:
++            return 10.0f;
++          case 86367: // Sleet Storm Nezir
++          case 96135:
++          case 96136:
++          case 96137:
++            return 90.0f;
++          case 86133: // Rohash tornado
++          case 93141:
++          case 93142:
++          case 93143:
++            return 3.0f;
++          case 84651: // Zephyr Anshal
++          case 93117:
++          case 93118:
++          case 93119:
++            return 90.0f;
++		  case 86487: // Hurricane Rohash
++		  case 93144:
++		  case 93145:
++		  case 93146:
++            return 90.0f;
++		  case 87770: // Windburst Al'Akir p1
++		  case 93261: 
++		  case 93262: 
++		  case 93263:
++            return 90.0f;
++		  case 88858: // Windburst Al'Akir p3
++		  case 93286: 
++		  case 93287: 
++		  case 93288:
++            return 150.0f;
++		  case 87873: // Static Shock Al'Akir
++            return 6.0f; // -- DONE.
++
++          // Baradin Hold
++          case 89000: // Argaloth Fel Flames
++            return 3.0f;
++          case 96883: // Occu'thar Focused Fire
++            return 12.0f;
++          case 96968: // Occu'thar's Destruction
++          case 101008:
++            return 500.0f;
++          case 105857: // Alizabal Disciple of Hate
++            return 10.0f;
++          case 104994: // Alizabal Blade Dance
++            return 13.0f;
++          case 105069: // Alizabal Seething Hate
++            return 6.0f; // -- DONE.
++
++           // Firelands
++          case 99171: // Ragnaros Engulfing Flames
++            return 13.0f;
++		  case 99840: // Shannox Magma Rupture
++			return 50000.0f;
++		  case 100002: // Shannox Hurl Spear
++			return 3.0f;
++		  case 100495: // Shannox Magma Flare
++			return 50.0f;
++		  case 99841: // Shannox Magma rupture
++			return 1.0f; 
++		  case 99261: // Baloroc wave of torment
++		  case 101636:
++		  case 101637:
++		  case 101638:
++			return 200.0f;
++		  case 99518: // Baloroc countdown
++			return 100.0f;
++		  case 98535: // Majordomus leaping flame
++		  case 100206:
++		  case 100207:
++		  case 100208:
++			return 12.0f;
++		  case 98443: // Majordomus fiery cyclone
++			return 200.0f;
++		  case 98450: // Majordomus searing seeds
++			return 5000.0f;
++		  case 99605: // Alysrazor firestorm
++		  case 99606: // Alysrazor firestorm
++			return 500.0f;
++		  case 98463: // Alysrazor volcan fire
++			return 6.0f;
++		  case 99925: // Alysrazor full power
++		    return 500.0f;
++		  case 101410: // Alysrazor indicator power
++			return 50000.0f;
++		  case 99461: // Alysrazor fire energy
++			return 8.0f;
++		  case 100734: // Alysrazor fiery tornado
++			return 10.0f;
++
++          // End Time
++          case 101810: // Jaina Frostbolt Volley
++            return 65.0f;
++          case 101587: // Jaina Flarecore
++            return 200.0f;
++          case 101980: // Jaina Flarecore
++            return 5.0f;
++
++          // Dragon Soul
++          case 103414: // Morchok Stomp.
++            return 25.0f;
++          case 103785: // Morchok Black Blood.
++            return 150.0f;
++			
++	      default:
++            return 0.0f;
++		  break;
++	   }
++	}
++		
++
++    float radius;
++	if(positive)
++		radius = RadiusEntry->radiusFriend;
++	else
++		radius = RadiusEntry->radiusHostile;
++	if (caster)
++    if (Player* modOwner = caster->GetSpellModOwner())
++        modOwner->ApplySpellMod(_spellInfo->Id, SPELLMOD_RADIUS, radius, spell);
+ 
+     return radius;
+ }
+Side-by-side diff View file
+src/server/game/Spells/SpellInfo.h
+     float CalcDamageMultiplier(Unit* caster, Spell* spell = NULL) const;
+ 
+     bool HasRadius() const;
+-    bool HasMaxRadius() const;
+-    float CalcRadius(Unit* caster = NULL, Spell* = NULL) const;
++    float CalcRadius(bool positive = false, Unit* caster = NULL, Spell* spell = NULL) const;
+ 
+     uint32 GetProvidedTargetMask() const;
+     uint32 GetMissingTargetMask(bool srcSet = false, bool destSet = false, uint32 mask = 0) const;

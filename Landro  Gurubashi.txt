@@ -1,0 +1,113 @@
+/*
+ * Copyright © 2008-2013 TrinityCore <http://www.trinitycore.org/>
+ * Copyright © 2012-2013 FreedomCore <http://freedomcore.ru/>
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/* ScriptData
+SDName: Landro Longshot
+SD%Complete: 100
+SDComment: Blizzlike implementation of NPC Landro Longshot
+SDCategory: Custom
+EndScriptData */
+
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
+#include "ScriptedGossip.h"
+#include "Player.h"
+#include "ScriptPCH.h"
+
+#include <cstring>
+
+enum eEnums
+{
+    SPELL_POLYMORPH         = 12826,
+    SAY_NOT_INTERESTED      = 0,
+    SAY_WRONG               = 1,
+    SAY_CORRECT             = 2
+};
+
+#define GOSSIP_ITEM_1       "I want to redeem item"
+#define GOSSIP_ITEM_2       "I'm not interested"
+
+class npc_landro_longshot : public CreatureScript
+{
+    public:
+        npc_landro_longshot() : CreatureScript("npc_landro_longshot") { }
+        bool OnGossipHello(Player* player, Creature* creature)
+        {
+            player->ADD_GOSSIP_ITEM_EXTENDED(0, GOSSIP_ITEM_1, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+1, "", 0, true);
+            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM_2, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+2);
+            player->PlayerTalkClass->SendGossipMenu(907, creature->GetGUID());
+            return true;
+        }
+        bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action)
+        {
+            player->PlayerTalkClass->ClearMenus();
+            if (action == GOSSIP_ACTION_INFO_DEF+2)
+            {
+                creature->AI()->Talk(SAY_NOT_INTERESTED);
+                player->CLOSE_GOSSIP_MENU();
+            }
+            return true;
+        }
+        bool OnGossipSelectCode(Player* player, Creature* creature, uint32 sender, uint32 action, char const* code)
+        {
+            player->PlayerTalkClass->ClearMenus();
+            if (sender == GOSSIP_SENDER_MAIN)
+            {
+                switch (action)
+                {
+					case GOSSIP_ACTION_INFO_DEF+1:
+					uint32 codeUINT = (uint32)atol(code);
+					if(!codeUINT)
+						return false;
+					QueryResult result = WorldDatabase.PQuery("SELECT code FROM landro_redeem_codes WHERE code = %u AND USED = 0", codeUINT);
+					if (!result)
+					{
+						creature->AI()->Talk(SAY_WRONG);
+						creature->CastSpell(player, SPELL_POLYMORPH, true);
+						sLog->outInfo(LOG_FILTER_SERVER_LOADING, "Player '%u' entered wrong redeem code! Entered code is: %u",player->GetName(), codeUINT);
+					}
+                    else
+                    {
+                        creature->AI()->Talk(SAY_CORRECT);
+						int i = 0;
+                        QueryResult itemresult = WorldDatabase.PQuery("SELECT item FROM landro_redeem_codes WHERE code = %u AND USED = 0", codeUINT);
+						if (itemresult)
+							{
+								do
+									{
+										Field *fields = itemresult->Fetch();
+										int id = fields[0].GetInt32();
+										player->AddItem(id,1);
+										WorldDatabase.PQuery("Update landro_redeem_codes SET USED = 1 WHERE code = %u", codeUINT);
+									}
+								while (result->NextRow());
+							}
+						return i;
+					}
+                    player->CLOSE_GOSSIP_MENU();
+                    return true;
+                }
+            }
+            return false;
+        }
+};
+
+void AddSC_npc_landro_longshot()
+{
+    new npc_landro_longshot();
+}

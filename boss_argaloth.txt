@@ -1,0 +1,162 @@
+/*
+* Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include "baradin_hold.h"
+#include "InstanceScript.h"
+#include "ScriptMgr.h"
+#include "Player.h"
+#include "ObjectAccessor.h"
+#include "ScriptedCreature.h"
+
+
+
+enum Spells
+{
+	SPELL_FEL_FIRESTORM			= 88972,
+	SPELL_CONSUMING_DARKNESS	= 88954,
+	SPELL_METEOR_SLASH			= 88942,
+	SPELL_FEL_FLAME             = 88999,
+	SPELL_BERSERK				= 47008
+};
+
+enum Events
+{
+    EVENT_BERSERK = 1,
+	EVENT_CONSUMING_DARKNESS,
+	EVENT_METEOR_SLASH,
+};
+
+
+class boss_argaloth : public CreatureScript
+{
+    public:
+        boss_argaloth() : CreatureScript("boss_argaloth") { }
+
+        struct boss_argalothAI : public BossAI
+        {
+           boss_argalothAI(Creature* creature) : BossAI(creature, DATA_ARGALOTH)
+            {
+            }
+           uint32 fel_firestorm_casted;
+
+		void EnterCombat(Unit* /*who*/) OVERRIDE
+		{
+                _EnterCombat();
+                instance->SendEncounterUnit(ENCOUNTER_FRAME_ENGAGE, me);
+		}
+
+		void Reset() OVERRIDE
+        {
+            _Reset();
+            me->RemoveAurasDueToSpell(SPELL_BERSERK);
+            events.ScheduleEvent(EVENT_BERSERK, 300000);
+            events.ScheduleEvent(EVENT_CONSUMING_DARKNESS, urand(20000, 25000));
+            events.ScheduleEvent(EVENT_METEOR_SLASH, urand(15000, 20000));
+            fel_firestorm_casted = 0;
+            summons.DespawnAll();
+        }
+
+		void JustDied(Unit* /*killer*/) OVERRIDE
+        {
+                _JustDied();
+				instance->SendEncounterUnit(ENCOUNTER_FRAME_DISENGAGE, me);
+		}
+
+        void UpdateAI (uint32 diff) OVERRIDE
+        {
+            if (!UpdateVictim())
+                return;
+
+            if (me->GetHealthPct() < 66 && fel_firestorm_casted == 0)
+            {
+                DoCast(SPELL_FEL_FIRESTORM);
+                events.DelayEvents(15000);
+                fel_firestorm_casted = 1;
+            }
+            if (me->GetHealthPct() < 33 && fel_firestorm_casted == 1)
+            {
+                DoCast(SPELL_FEL_FIRESTORM);
+                events.DelayEvents(15000);
+                fel_firestorm_casted = 2;
+            }
+
+            events.Update(diff);
+
+            if (me->HasUnitState(UNIT_STATE_CASTING))
+                return;
+
+            while (uint32 eventId = events.ExecuteEvent())
+            {
+                switch (eventId)
+                {
+					case EVENT_CONSUMING_DARKNESS:
+                        for (uint8 i = 0; i < RAID_MODE(3, 8); i++)
+                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100.0f, true, -SPELL_CONSUMING_DARKNESS))
+                                me->CastSpell(target, SPELL_CONSUMING_DARKNESS, true);
+                        break;
+					case EVENT_METEOR_SLASH:
+						DoCast(SPELL_METEOR_SLASH);
+						events.RescheduleEvent(EVENT_METEOR_SLASH, 15 * IN_MILLISECONDS);
+						break;
+					case EVENT_BERSERK:
+						DoCast(me, SPELL_BERSERK);
+						break;
+                }
+            }
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+        CreatureAI* GetAI(Creature* creature) const OVERRIDE
+        {
+            return new boss_argalothAI(creature);
+        }
+};
+
+class npc_fel_flame : public CreatureScript
+{
+    public:
+        npc_fel_flame() : CreatureScript("npc_fel_flame") { }
+ 
+                 CreatureAI* GetAI(Creature* creature) const
+        {
+            return new npc_fel_flameAI(creature);
+        }
+ 
+        struct npc_fel_flameAI : public ScriptedAI
+        {
+            npc_fel_flameAI(Creature* creature) : ScriptedAI(creature)
+            {
+            }
+
+			void IsSummonedBy(Unit* /*owner*/) OVERRIDE
+            {
+				me->SetReactState(REACT_PASSIVE);
+				me->SetLevel(85);
+				me->setFaction(14);
+				DoCast(SPELL_FEL_FLAME);
+            }
+
+         };  
+   };
+
+void AddSC_boss_argaloth()
+{
+    new boss_argaloth();
+	new npc_fel_flame();
+}
